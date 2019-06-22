@@ -1,9 +1,9 @@
 /*
  * 1. We begin by determining which interface we want to sniff on
  * 2. Initialize pcap
- * 3. Create a rule set, "compile" it, and apply it		<========
+ * 3. Create a rule set, "compile" it, and apply it
  * 4. Enter it's primary execution loop
- * 5. Close our session
+ * 5. Close our session									<========
  * 
  * Look details here: https://www.ietf.org/archive/id/draft-ietf-cipso-ipsecurity-01.txt
  * 
@@ -55,8 +55,8 @@ usage(char *usage_name) {
 	
 	printf("Version: %s \n", VERSION );
 	printf("Usage: %s [-i interface] | [-f pcap_file] \n", usage_name);
-	printf("   -i - listen on a given 'interface' or 'any' \n");
-	printf("   -f - pcap file in tcpdump format ('/tmp/foo.pcap')\n");
+	printf("   -i - listen on a real 'interface' (eth0, enp0s31f6 etc.) \n");
+	printf("   -f - pcap file in tcpdump format for real 'interface' ('/tmp/foo.pcap')\n\n");
 	exit(EXIT_FAILURE);
 }
 
@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
 	bpf_u_int32 net;				// The net IP of our sniffing device
 	bpf_u_int32 netmask;			// The netmask of our sniffing device
 	struct pcap_pkthdr header;		// The header that pcap gives us
-	const u_char *packet;			// The actual packet
+	//const u_char *packet;			// The actual packet
 
 	char errbuf[PCAP_ERRBUF_SIZE];
 
@@ -130,7 +130,7 @@ int main(int argc, char *argv[])
 			A1.s_addr = netmask;
 			strcpy( A2_str, inet_ntoa(A1) );
 
-			DL fprintf(stdout, "%s/%s for <%s> \n\n", A1_str, A2_str, dev_to_listen);
+			DL fprintf(stdout, "%s/%s for <%s> \n", A1_str, A2_str, dev_to_listen);
 		}
 	} else {
 		if ( (handle = pcap_open_offline(pcap_fname, errbuf)) == NULL ) 
@@ -245,19 +245,20 @@ got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 		// Get MAC address and print it
 		strcpy( tmp_dhost,  ether_ntoa( (struct ether_addr *)(sniff_ether->ether_dhost) ));
 		strcpy( tmp_shost, 	ether_ntoa( (struct ether_addr *)(sniff_ether->ether_shost) ));
-		//printf("   %s ----> %s \n", tmp_shost, tmp_dhost );
+
 	
 		// Get IP address and print it
 		inet_ntop(AF_INET, &(sniff_ip->saddr), tmp_saddr, INET_ADDRSTRLEN);
 		inet_ntop(AF_INET, &(sniff_ip->daddr), tmp_daddr, INET_ADDRSTRLEN);
-		//printf("   %s ---->  %s \n", tmp_saddr, tmp_daddr);
+
 			
 		// Get Source and Destination port from TCP header
 		sport = ntohs( sniff_tcp->th_sport );
 		dport = ntohs( sniff_tcp->th_dport );
-		//printf("  sport: %d ----> dport: %d \n", sport, dport );
+
 		
-		printf("\n%s:%d [%s] ----- %s:%d [%s] \n", tmp_saddr,sport,tmp_shost,   tmp_daddr, dport,tmp_dhost);
+		printf("\n%s:%d [%s] ----- %s:%d [%s] \n",
+					tmp_saddr,sport,tmp_shost,   tmp_daddr, dport,tmp_dhost);
 		
 		
 		/* Let's imagine that we found CIPSO option among others*/
@@ -265,7 +266,6 @@ got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 		cipso_hdr_len = (uint8_t)*(cipso_hdr_p + 1);
 
 			
-		//cipso_doi = ( *(cipso_hdr_p+2) <<24 | *(cipso_hdr_p+3) <<16 | *(cipso_hdr_p+4) <<8 ) | *(cipso_hdr_p+5);
 		cipso_doi = ntohl(  *(uint32_t*)(cipso_hdr_p+2) );
 		DL printf("  CIPSO: 134,  DOI: %d,  Len: %d \n", cipso_doi, cipso_hdr_len);
 		if ( cipso_hdr_len <= 6 ) {	// CIPSO header len == 6
@@ -289,46 +289,84 @@ got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 			// TAG decode here
 			switch( tag_type ) {
 			case 1:
-				for ( uint8_t x=0; x < tag_len - 4; x++)
+			{
+				uint8_t x, x2;
+				
+				for ( x=0; x < tag_len - 4; x++)
 				{
-					DL printf("    0x%x --> ", *(tag_p + 4 + x));
-					for ( uint8_t x2 = 0; x2 <= 7; x2++) {
+					for ( x2 = 0; x2 <= 7; x2++) {
 						if ( (*(tag_p + 4 + x) & 0x80 >> x2) != 0 )	{ // 0x80 == 1000 0000
-							DL printf("c%d ", x2 + x*8 );
-							
 							char tmp_ch[10] = {0};
-							snprintf(tmp_ch, sizeof tmp_ch, " %d,", x2 + x*8);
+							snprintf(tmp_ch, sizeof tmp_ch, "%d,", x2 + x*8);
 							strncat(cats1, tmp_ch, sizeof tmp_ch); 
 						}
 					}
 				}
+				
 				if( cats1[ strlen(cats1) - 1 ] == ',' )
-					cats1[ strlen(cats1) - 1 ] = '\0';
+						cats1[ strlen(cats1) - 1 ] = '\0';
+						
 				printf("   DOI: %d,  TAG: %d,  Sensitivity: %d,  Categories: %s \n",
 											cipso_doi, tag_type, tag_label, cats1);
+			}
 			break;
 				
 			case 2:
 			{
-				for ( uint8_t x=4; x < tag_len; x += 2)
+				uint16_t tmp_d;
+				uint8_t x;
+				
+				for ( x=4; x < tag_len; x += 2)
 				{
-					//uint16_t tmp_d = *(tag_p + x) <<8 | *(tag_p + x + 1);
-					uint16_t tmp_d = ntohs( *((uint16_t*)(tag_p + x)) );
-					DL printf( "    0x%x --> c%d \n", tmp_d, tmp_d );
+					tmp_d = ntohs( *((uint16_t*)(tag_p + x)) );
 					
 					char tmp_ch[10] = {0};
-						snprintf(tmp_ch, sizeof tmp_ch, " %d,", tmp_d);
-						strncat(cats2, tmp_ch, sizeof tmp_ch); 
+					snprintf(tmp_ch, sizeof tmp_ch, "%d,", tmp_d);
+					strncat(cats2, tmp_ch, sizeof tmp_ch); 
 				}
+				
 				if( cats2[ strlen(cats2) - 1 ] == ',' )
-					cats2[ strlen(cats2) - 1 ] = '\0';
+						cats2[ strlen(cats2) - 1 ] = '\0';
+				
 				printf("   DOI: %d,  TAG: %d,  Sensitivity: %d,  Categories: %s \n",
 											cipso_doi, tag_type, tag_label, cats2);
 			}
 			break;
 				 
 			case 5:
-				printf("   Not ready for TAG type = 5 \n");
+			{
+				uint16_t tmp_top, tmp_bottom;
+				uint8_t x;
+				
+				DL printf("   tag_len = %d \n", tag_len );
+				DL printf("   ");
+				DL line2hex((tag_p + 4), tag_len - 4, 80);
+				
+				for ( x=4; x < tag_len; x += 4)
+				{
+					tmp_top = ntohs( *((uint16_t*)(tag_p + x)) );
+					if( x + 2 >= tag_len )
+						tmp_bottom = 0;
+					else
+						tmp_bottom = ntohs( *((uint16_t*)(tag_p + x + 2)) );
+						
+					if( tmp_top != tmp_bottom ) {
+						char tmp_ch[15] = {0};	// 63000-64000 == 12 chars MAX
+						snprintf(tmp_ch, sizeof tmp_ch, "%d-%d,", tmp_top, tmp_bottom);
+						strncat(cats5, tmp_ch, sizeof tmp_ch);
+					} else {
+						char tmp_ch[10] = {0};	// 63000 == 6 chars MAX
+						snprintf(tmp_ch, sizeof tmp_ch, "%d,", tmp_top);
+						strncat(cats5, tmp_ch, sizeof tmp_ch);
+					}
+				}
+				
+				if( cats5[ strlen(cats5) - 1 ] == ',' )
+						cats5[ strlen(cats5) - 1 ] = '\0';
+						
+				printf("   DOI: %d,  TAG: %d,  Sensitivity: %d,  Categories: %s \n",
+											cipso_doi, tag_type, tag_label, cats5);
+			}
 			break;
 				  
 			default:
