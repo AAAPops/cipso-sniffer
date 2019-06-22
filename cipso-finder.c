@@ -37,7 +37,7 @@
 
 
 // Convert line to hex
-void line2hex(unsigned char *str, int len, int columm) {
+void line2hex(uint8_t *str, int len, int columm) {
 	int x;
 	for(x=0; x < len; x++) {
 		if( x>0 && x%columm == 0)
@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
 	char filter_exp[] = "ip";		// The filter expression
 	bpf_u_int32 net;				// The net IP of our sniffing device
 	bpf_u_int32 netmask;			// The netmask of our sniffing device
-	struct pcap_pkthdr header;		// The header that pcap gives us
+	//struct pcap_pkthdr header;		// The header that pcap gives us
 	//const u_char *packet;			// The actual packet
 
 	char errbuf[PCAP_ERRBUF_SIZE];
@@ -179,9 +179,9 @@ got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 	struct tcphdr		*sniff_tcp;	// TCP header struct pointer
 	uint16_t sport, dport;
 	
-	char *opts_p;					// Pointer to ALL IP header option
+	uint8_t *opts_p;					// Pointer to ALL IP header option
 	
-	char	 *cipso_hdr_p;			// Pointer to IP Option CIPSO address
+	uint8_t	 *cipso_hdr_p;			// Pointer to IP Option CIPSO address
 	uint8_t	  cipso_hdr_len = 0;	// CIPSO total lenght <= 40 octets
 	uint32_t  cipso_doi = 0;		// CIPSO DOI
 	uint8_t	  cipso_curr_pos = 6;	// Position of current TAG
@@ -210,7 +210,7 @@ got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 		ip_opt_total_len = 4 * (sniff_ip->ihl - 5);
 		DL printf("Total opts lenght == %d \n", ip_opt_total_len);
 
-		opts_p = (char *)sniff_ip + 4 * 5; // Start point of IP options
+		opts_p = (uint8_t *)sniff_ip + 4 * 5; // Start point of IP options
 		DL printf("  All IP  opts: "); DL line2hex(opts_p, ip_opt_total_len, 80);
 		
 
@@ -298,7 +298,7 @@ got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 						if ( (*(tag_p + 4 + x) & 0x80 >> x2) != 0 )	{ // 0x80 == 1000 0000
 							char tmp_ch[10] = {0};
 							snprintf(tmp_ch, sizeof tmp_ch, "%d,", x2 + x*8);
-							strncat(cats1, tmp_ch, sizeof tmp_ch); 
+							strncat(cats1, tmp_ch, strlen(tmp_ch)); 
 						}
 					}
 				}
@@ -322,7 +322,7 @@ got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 					
 					char tmp_ch[10] = {0};
 					snprintf(tmp_ch, sizeof tmp_ch, "%d,", tmp_d);
-					strncat(cats2, tmp_ch, sizeof tmp_ch); 
+					strncat(cats2, tmp_ch, strlen(tmp_ch)); 
 				}
 				
 				if( cats2[ strlen(cats2) - 1 ] == ',' )
@@ -353,11 +353,11 @@ got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 					if( tmp_top != tmp_bottom ) {
 						char tmp_ch[15] = {0};	// 63000-64000 == 12 chars MAX
 						snprintf(tmp_ch, sizeof tmp_ch, "%d-%d,", tmp_top, tmp_bottom);
-						strncat(cats5, tmp_ch, sizeof tmp_ch);
+						strncat(cats5, tmp_ch, strlen(tmp_ch));
 					} else {
 						char tmp_ch[10] = {0};	// 63000 == 6 chars MAX
 						snprintf(tmp_ch, sizeof tmp_ch, "%d,", tmp_top);
-						strncat(cats5, tmp_ch, sizeof tmp_ch);
+						strncat(cats5, tmp_ch, strlen(tmp_ch));
 					}
 				}
 				
@@ -383,4 +383,3 @@ got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 
 
 // printf ("%c", ( (*tag_p & 1<<z) == 0) ? '0' : '1' );
-
