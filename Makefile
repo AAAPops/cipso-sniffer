@@ -1,23 +1,22 @@
 ### https://nullpointer.io/post/easily-embed-version-information-in-software-releases/
 ###
-### export CC=gcc on x86
 
-
-#CC = gcc
-#CFLAGS = -Wall -std=c99 -D_XOPEN_SOURCE=600 -I../libs
-CFLAGS = -Wall -l:libpcap.a
+CC = gcc
+CFLAGS = -Wall -Wno-unknown-pragmas -Wno-unused-variable
+#CFLAGS = -Wall -std=c99 -D_XOPEN_SOURCE=600
+#CFLAGS = -Wall -l:libpcap.a
 #CFLAGS = -l:libpcap.a
 #LDFLAGS = -L../libs -lmytlpi
 
-src = cipso-finder.c
+src = main.c
 #$(info  SRC == $(src))
 
-VERSION = 0.1
+VERSION = 0.3
 
 #all: $(src)
 
-raw_sock_capture: $(src)
-	$(CC) -o cipso-finder  $(src)  $(CFLAGS) $(LDFLAGS) -DVERSION=\"$(VERSION)\"
+cripper: $(src)
+	$(CC) -o cripper  $(src)  $(CFLAGS) $(LDFLAGS) -DVERSION=\"$(VERSION)\"
 
 
 .PHONY: clean 
