@@ -1,5 +1,11 @@
-*.pcap
 cipso-finder
+tst*
+_cipso-finder.c
+cripper
 
 libs/
 src/
+
+.idea/
+CMakeLists.txt
+cmake-build-debug/
